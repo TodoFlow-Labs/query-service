@@ -1,3 +1,3 @@
-# infrastructure
+# query-service
 
-> TODO: project description for projection-worker
+> TODO: project description for query-service
