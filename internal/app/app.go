@@ -2,8 +2,10 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
+	"github.com/go-chi/chi/middleware"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
@@ -35,13 +37,46 @@ func Run() {
 	handler := todo.NewHandler(svc, &logger)
 
 	r := chi.NewRouter()
+	// Middleware
+	r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Logger)
+	r.Use(jsonContentType)
+
 	r.Get("/todos", handler.List)
 
 	metrics.Init(cfg.MetricsAddr)
 	logger.Info().Msgf("metrics listening on %s", cfg.MetricsAddr)
 
-	logger.Info().Msgf("HTTP listening on %s", cfg.HTTPAddr)
+	// Error handlers
+	r.NotFound(func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusNotFound, "route not found")
+		logger.Warn().Str("path", r.URL.Path).Msg("404 not found")
+	})
+	r.MethodNotAllowed(func(w http.ResponseWriter, r *http.Request) {
+		writeError(w, http.StatusMethodNotAllowed, "method not allowed")
+		logger.Warn().Str("path", r.URL.Path).Msg("405 method not allowed")
+	})
+
+	logger.Info().Msgf("query-service listening on %s", cfg.HTTPAddr)
 	if err := http.ListenAndServe(cfg.HTTPAddr, r); err != nil {
-		logger.Fatal().Err(err).Msg("http.ListenAndServe failed")
+		logger.Fatal().Err(err).Msg("HTTP server failed")
 	}
+}
+
+// Forces JSON Content-Type for all responses
+func jsonContentType(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		next.ServeHTTP(w, r)
+	})
+}
+
+// Writes a structured JSON error
+func writeError(w http.ResponseWriter, status int, msg string) {
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"error": msg,
+	})
 }

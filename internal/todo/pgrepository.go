@@ -2,57 +2,33 @@ package todo
 
 import (
 	"context"
+
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
 	"github.com/todoflow-labs/shared-dtos/dto"
 )
 
-// Repo abstracts DB access.
+// Repo abstracts DB access for todos.
 type Repo interface {
 	SearchTodos(ctx context.Context, q string, limit int) ([]dto.SearchResult, error)
 }
 
-// Service provides business logic.
-type Service interface {
-	List(ctx context.Context, q string, limit int) ([]dto.SearchResult, error)
+// PGXQueryIface enables mocking or plugging in pgxmock.
+type PGXQueryIface interface {
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
-
-// ---- service impl ----
-
-type service struct {
-	repo   Repo
-	logger *zerolog.Logger
-}
-
-func NewService(r Repo, logger *zerolog.Logger) Service {
-	return &service{repo: r, logger: logger}
-}
-
-func (s *service) List(ctx context.Context, q string, limit int) ([]dto.SearchResult, error) {
-	s.logger.Debug().Str("query", q).Int("limit", limit).Msg("starting service.List")
-
-	todos, err := s.repo.SearchTodos(ctx, q, limit)
-	if err != nil {
-		s.logger.Error().Err(err).Msg("SearchTodos failed")
-		return nil, err
-	}
-
-	s.logger.Debug().Int("results", len(todos)).Msg("service.List completed")
-	return todos, nil
-}
-
-// ---- PostgreSQL Repo ----
 
 type pgRepository struct {
-	db     *pgxpool.Pool
+	db     PGXQueryIface
 	logger *zerolog.Logger
 }
 
-func NewPgRepository(db *pgxpool.Pool, logger *zerolog.Logger) Repo {
+// NewPgRepository returns a Repo backed by PostgreSQL.
+func NewPgRepository(db PGXQueryIface, logger *zerolog.Logger) Repo {
 	return &pgRepository{db: db, logger: logger}
 }
 
+// SearchTodos runs a full-text search or fallback listing.
 func (r *pgRepository) SearchTodos(ctx context.Context, q string, limit int) ([]dto.SearchResult, error) {
 	r.logger.Debug().Str("query", q).Int("limit", limit).Msg("executing full-text search")
 
