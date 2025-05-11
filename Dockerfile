@@ -16,6 +16,6 @@ FROM alpine:latest
 WORKDIR /app
 
 COPY --from=builder /app/main .
-
+RUN mkdir data
 
 CMD ["./main", "--config", "/app/config.yaml"]

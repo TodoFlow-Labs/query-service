@@ -1,6 +1,5 @@
 nats-url: "nats://"
-database-url: "postgresql://"
+database-url: "postgres://"
 http-addr: ":8080"
-bleve-index-path: "./index.bleve"
 log-level: "debug"
 metrics-addr: ":9090"

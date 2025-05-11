@@ -9,12 +9,11 @@ import (
 )
 
 type Config struct {
-	HTTPAddr       string `mapstructure:"http-addr"`
-	NATSURL        string `mapstructure:"nats-url"`
-	DatabaseURL    string `mapstructure:"database-url"`
-	BleveIndexPath string `mapstructure:"bleve-index-path"`
-	LogLevel       string `mapstructure:"log-level"`
-	MetricsAddr    string `mapstructure:"metrics-addr"`
+	HTTPAddr    string `mapstructure:"http-addr"`
+	NATSURL     string `mapstructure:"nats-url"`
+	DatabaseURL string `mapstructure:"database-url"`
+	LogLevel    string `mapstructure:"log-level"`
+	MetricsAddr string `mapstructure:"metrics-addr"`
 }
 
 func Load() (*Config, error) {
@@ -25,7 +24,6 @@ func Load() (*Config, error) {
 	pflag.String("http-addr", "", "HTTP listen address")
 	pflag.String("nats-url", "", "NATS JetStream server URL")
 	pflag.String("database-url", "", "Database connection URL")
-	pflag.String("bleve-index-path", "", "Path to Bleve index directory")
 	pflag.String("log-level", "info", "Log verbosity (debug|info|warn|error)")
 	pflag.String("metrics-addr", ":9090", "Metrics listen address")
 	pflag.Parse()
@@ -56,9 +54,6 @@ func Load() (*Config, error) {
 	}
 	if cfg.NATSURL == "" {
 		return nil, fmt.Errorf("nats-url must be set")
-	}
-	if cfg.BleveIndexPath == "" {
-		return nil, fmt.Errorf("bleve-index-path must be set")
 	}
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("database-url must be set")
