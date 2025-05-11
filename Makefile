@@ -1,15 +1,39 @@
+.PHONY: run fmt test update push
 
-# Makefile for projection-worker
-# This Makefile is used to build and run the projection-worker service.
-
-.PHONY: run
 run:
-	# Run the projection-worker service with the specified NATS URL and Bleve index path.
-	# The log level is set to debug for detailed logging.
-	# The Bleve index path is set to /data/index.bleve.
-	# The NATS URL is set to nats://nats:4222.
-	# The command is run in the current directory.
-	go run cmd/main.go \
-	--http-addr ":8082" \
-	--bleve-index-path "../projection-worker/data/index.bleve" \
-	--log-level debug 
+	go run cmd/main.go --config=./internal/config/config.dev.yaml
+
+fmt:
+	go fmt ./...
+	go mod tidy
+
+test:
+	@echo "Running tests..."
+	go test ./... -v
+	@echo "Tests completed."
+
+update:
+	@echo "Updating dependencies..."
+	go get -u ./...
+	@echo "Dependencies updated."
+
+push:
+	@if [ -z "$(COMMIT_MSG)" ]; then \
+		echo "❌ COMMIT_MSG is required. Usage: make push COMMIT_MSG=\"your message\""; \
+		exit 1; \
+	fi
+
+	@$(MAKE) fmt
+	@$(MAKE) test || { echo "❌ Tests failed. Aborting push."; exit 1; }
+
+	@echo "✅ Tests passed."
+	@echo "Adding changes to git..."
+	git add .
+
+	@echo "Committing changes with message: $(COMMIT_MSG)"
+	git commit -m "$(COMMIT_MSG)" || echo "No changes to commit."
+
+	@echo "Pushing changes to remote repository..."
+	git push origin main
+
+	@echo "✅ All tasks completed successfully."

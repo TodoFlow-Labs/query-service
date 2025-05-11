@@ -5,15 +5,15 @@ import (
 	"encoding/json"
 	"net/http"
 
-
 	"github.com/blevesearch/bleve/v2"
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
 	"github.com/todoflow-labs/query-service/internal/config"
-	"github.com/todoflow-labs/query-service/internal/logging"
 	"github.com/todoflow-labs/shared-dtos/dto"
+	"github.com/todoflow-labs/shared-dtos/logging"
+	"github.com/todoflow-labs/shared-dtos/metrics"
 )
 
 func main() {
@@ -25,8 +25,12 @@ func main() {
 	logger := logging.New(cfg.LogLevel)
 	logger.Info().Msg("query-service starting")
 
+	// 2) Initialize metrics
+	metrics.Init(cfg.MetricsAddr)
+	logger.Info().Msgf("metrics server listening on %s", cfg.MetricsAddr)
+
 	// 2) Connect to CockroachDB
-	db, err := pgxpool.New(context.Background(), cfg.DbUrl)
+	db, err := pgxpool.New(context.Background(), cfg.DatabaseURL)
 	if err != nil {
 		logger.Fatal().Err(err).Msg("db connect failed")
 	}
@@ -53,7 +57,7 @@ func main() {
 			q := bleve.NewMatchQuery(qs)
 			req = bleve.NewSearchRequest(q)
 		}
-		
+
 		req.Size = 100
 		res, err := index.Search(req)
 		if cerr := index.Close(); cerr != nil {

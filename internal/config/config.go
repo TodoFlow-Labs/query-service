@@ -1,54 +1,68 @@
 package config
 
 import (
-    "fmt"
-    "strings"
+	"fmt"
+	"strings"
 
-    "github.com/spf13/pflag"
-    "github.com/spf13/viper"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
 )
 
-// Config holds query-service settings.
 type Config struct {
-    HTTPAddr       string // e.g. ":8082"
-    BleveIndexPath string // e.g. "./index.bleve"
-    LogLevel       string // e.g. "debug","info"
-	DbUrl 	   string // e.g. "postgresql://root@localhost:26257/defaultdb?sslmode=disable"
+	HTTPAddr       string `mapstructure:"http-addr"`
+	NATSURL        string `mapstructure:"nats-url"`
+	DatabaseURL    string `mapstructure:"database-url"`
+	BleveIndexPath string `mapstructure:"bleve-index-path"`
+	LogLevel       string `mapstructure:"log-level"`
+	MetricsAddr    string `mapstructure:"metrics-addr"`
 }
 
-// Load parses flags / env and returns a Config or error.
 func Load() (*Config, error) {
-    // Define flags
-    pflag.String("http-addr", ":8082", "HTTP listen address")
-    pflag.String("bleve-index-path", "./index.bleve", "Path to Bleve index")
-    pflag.String("log-level", "info", "Log verbosity (debug|info|warn|error)")
-	pflag.String("db-url", "postgresql://root@localhost:26257/defaultdb?sslmode=disable", "Database connection URL")
-    pflag.Parse()
+	// Optional config file
+	pflag.String("config", "config.yaml", "Path to config file")
 
-    // Bind to viper
-    if err := viper.BindPFlags(pflag.CommandLine); err != nil {
-        return nil, err
-    }
-    viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
-    viper.AutomaticEnv() // allow BLEVE_INDEX_PATH, HTTP_ADDR, LOG_LEVEL
+	// Flags
+	pflag.String("http-addr", "", "HTTP listen address")
+	pflag.String("nats-url", "", "NATS JetStream server URL")
+	pflag.String("database-url", "", "Database connection URL")
+	pflag.String("bleve-index-path", "", "Path to Bleve index directory")
+	pflag.String("log-level", "info", "Log verbosity (debug|info|warn|error)")
+	pflag.String("metrics-addr", ":9090", "Metrics listen address")
+	pflag.Parse()
 
-    // Construct
-    cfg := &Config{
-        HTTPAddr:       viper.GetString("http-addr"),
-        BleveIndexPath: viper.GetString("bleve-index-path"),
-        LogLevel:       viper.GetString("log-level"),
-		DbUrl:          viper.GetString("db-url"),
-    }
+	// Bind flags
+	if err := viper.BindPFlags(pflag.CommandLine); err != nil {
+		return nil, err
+	}
 
-    // Validate
-    if cfg.HTTPAddr == "" {
-        return nil, fmt.Errorf("http-addr must be set")
-    }
-    if cfg.BleveIndexPath == "" {
-        return nil, fmt.Errorf("bleve-index-path must be set")
-    }
-    if cfg.DbUrl == "" {
-        return nil, fmt.Errorf("db-url must be set")
-    }
-    return cfg, nil
+	// Support env vars
+	viper.SetEnvKeyReplacer(strings.NewReplacer("-", "_"))
+	viper.AutomaticEnv()
+
+	// Load from file if present
+	viper.SetConfigFile(viper.GetString("config"))
+	if err := viper.ReadInConfig(); err != nil {
+		fmt.Printf("No config file found, using flags/env: %v\n", err)
+	}
+
+	var cfg Config
+	if err := viper.Unmarshal(&cfg); err != nil {
+		return nil, err
+	}
+
+	// Validate
+	if cfg.HTTPAddr == "" {
+		return nil, fmt.Errorf("http-addr must be set")
+	}
+	if cfg.NATSURL == "" {
+		return nil, fmt.Errorf("nats-url must be set")
+	}
+	if cfg.BleveIndexPath == "" {
+		return nil, fmt.Errorf("bleve-index-path must be set")
+	}
+	if cfg.DatabaseURL == "" {
+		return nil, fmt.Errorf("database-url must be set")
+	}
+
+	return &cfg, nil
 }
