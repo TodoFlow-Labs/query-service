@@ -12,11 +12,13 @@ import (
 // Repo abstracts DB access for todos.
 type Repo interface {
 	SearchTodos(ctx context.Context, q string, limit, offset int) ([]dto.SearchResult, error)
+	FindByID(ctx context.Context, id string) (*dto.SearchResult, error)
 }
 
 // PGXQueryIface enables mocking or plugging in pgxmock.
 type PGXQueryIface interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
 type pgRepository struct {
@@ -110,4 +112,45 @@ func (r *pgRepository) SearchTodos(ctx context.Context, q string, limit, offset 
 
 	r.logger.Debug().Int("result_count", len(results)).Msg("search completed")
 	return results, nil
+}
+
+// FindByID fetches a single todo by ID, scoped to user_id from context.
+func (r *pgRepository) FindByID(ctx context.Context, id string) (*dto.SearchResult, error) {
+	userID := getUserID(ctx)
+	if userID == "" {
+		r.logger.Warn().Msg("user_id missing in context")
+		return nil, fmt.Errorf("unauthorized")
+	}
+
+	row := r.db.QueryRow(ctx, `
+		SELECT id, user_id, title, description, completed,
+		       created_at, updated_at, due_date, priority, tags
+		FROM todo
+		WHERE id = $1 AND user_id = $2
+	`, id, userID)
+
+	var todo dto.SearchResult
+	err := row.Scan(
+		&todo.ID,
+		&todo.UserID,
+		&todo.Title,
+		&todo.Description,
+		&todo.Completed,
+		&todo.CreatedAt,
+		&todo.UpdatedAt,
+		&todo.DueDate,
+		&todo.Priority,
+		&todo.Tags,
+	)
+
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			r.logger.Info().Str("id", id).Str("user_id", userID).Msg("todo not found")
+			return nil, fmt.Errorf("todo not found")
+		}
+		r.logger.Error().Err(err).Str("id", id).Msg("FindByID query failed")
+		return nil, err
+	}
+
+	return &todo, nil
 }

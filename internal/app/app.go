@@ -47,6 +47,7 @@ func Run() {
 	r.Use(authMiddleware)
 
 	r.Get("/todos", handler.List)
+	r.Get("/todos/{id}", handler.GetByID)
 
 	metrics.Init(cfg.MetricsAddr)
 	logger.Info().Msgf("metrics listening on %s", cfg.MetricsAddr)

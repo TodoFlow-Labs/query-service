@@ -10,6 +10,7 @@ import (
 // Service provides business logic for listing todos.
 type Service interface {
 	ListPaginated(ctx context.Context, q string, limit int, offset int) ([]dto.SearchResult, error)
+	GetByID(ctx context.Context, id string) (*dto.SearchResult, error)
 }
 
 type service struct {
@@ -38,4 +39,16 @@ func (s *service) ListPaginated(ctx context.Context, q string, limit int, offset
 
 	s.logger.Debug().Int("results", len(todos)).Msg("service.ListPaginated completed")
 	return todos, nil
+}
+
+func (s *service) GetByID(ctx context.Context, id string) (*dto.SearchResult, error) {
+	s.logger.Debug().Str("id", id).Msg("starting service.GetByID")
+
+	todo, err := s.repo.FindByID(ctx, id)
+	if err != nil {
+		s.logger.Error().Err(err).Str("id", id).Msg("FindByID failed")
+		return nil, err
+	}
+
+	return todo, nil
 }

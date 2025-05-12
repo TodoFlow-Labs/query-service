@@ -72,3 +72,24 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(dto.ListTodosResponse{Todos: todos})
 }
+
+// Get responds to GET /todos/{id}
+func (h *Handler) GetByID(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	if id == "" {
+		http.Error(w, "missing todo ID", http.StatusBadRequest)
+		return
+	}
+
+	h.logger.Debug().Str("id", id).Msg("handling /todos/{id} request")
+
+	todo, err := h.svc.GetByID(r.Context(), id)
+	if err != nil {
+		h.logger.Error().Err(err).Str("id", id).Msg("GetByID failed")
+		http.Error(w, "todo not found", http.StatusNotFound)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(todo)
+}
