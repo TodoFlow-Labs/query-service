@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/joho/godotenv"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
@@ -57,6 +58,12 @@ func Load() (*Config, error) {
 	}
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("database-url must be set")
+	}
+
+	// get environment from .env
+	err := godotenv.Load()
+	if err != nil {
+		return nil, fmt.Errorf("error loading .env file")
 	}
 
 	return &cfg, nil

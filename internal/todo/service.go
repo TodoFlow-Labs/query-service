@@ -9,7 +9,7 @@ import (
 
 // Service provides business logic for listing todos.
 type Service interface {
-	List(ctx context.Context, q string, limit int) ([]dto.SearchResult, error)
+	ListPaginated(ctx context.Context, q string, limit int, offset int) ([]dto.SearchResult, error)
 }
 
 type service struct {
@@ -22,16 +22,20 @@ func NewService(r Repo, logger *zerolog.Logger) Service {
 	return &service{repo: r, logger: logger}
 }
 
-// List performs a full-text search for todos.
-func (s *service) List(ctx context.Context, q string, limit int) ([]dto.SearchResult, error) {
-	s.logger.Debug().Str("query", q).Int("limit", limit).Msg("starting service.List")
+// ListPaginated performs a full-text search with pagination.
+func (s *service) ListPaginated(ctx context.Context, q string, limit int, offset int) ([]dto.SearchResult, error) {
+	s.logger.Debug().
+		Str("query", q).
+		Int("limit", limit).
+		Int("offset", offset).
+		Msg("starting service.ListPaginated")
 
-	todos, err := s.repo.SearchTodos(ctx, q, limit)
+	todos, err := s.repo.SearchTodos(ctx, q, limit, offset)
 	if err != nil {
 		s.logger.Error().Err(err).Msg("SearchTodos failed")
 		return nil, err
 	}
 
-	s.logger.Debug().Int("results", len(todos)).Msg("service.List completed")
+	s.logger.Debug().Int("results", len(todos)).Msg("service.ListPaginated completed")
 	return todos, nil
 }

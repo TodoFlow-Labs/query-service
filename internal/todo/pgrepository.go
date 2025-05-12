@@ -2,6 +2,7 @@ package todo
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/rs/zerolog"
@@ -10,7 +11,7 @@ import (
 
 // Repo abstracts DB access for todos.
 type Repo interface {
-	SearchTodos(ctx context.Context, q string, limit int) ([]dto.SearchResult, error)
+	SearchTodos(ctx context.Context, q string, limit, offset int) ([]dto.SearchResult, error)
 }
 
 // PGXQueryIface enables mocking or plugging in pgxmock.
@@ -28,28 +29,54 @@ func NewPgRepository(db PGXQueryIface, logger *zerolog.Logger) Repo {
 	return &pgRepository{db: db, logger: logger}
 }
 
-// SearchTodos runs a full-text search or fallback listing.
-func (r *pgRepository) SearchTodos(ctx context.Context, q string, limit int) ([]dto.SearchResult, error) {
-	r.logger.Debug().Str("query", q).Int("limit", limit).Msg("executing full-text search")
+func getUserID(ctx context.Context) string {
+	uid, ok := ctx.Value("user_id").(string)
 
-	var rows pgx.Rows
-	var err error
+	if !ok || uid == "" {
+		return ""
+	}
+	return uid
+}
+
+// SearchTodos runs a full-text search or fallback listing, scoped by user_id.
+func (r *pgRepository) SearchTodos(ctx context.Context, q string, limit, offset int) ([]dto.SearchResult, error) {
+	userID := getUserID(ctx)
+	if userID == "" {
+		r.logger.Warn().Msg("user_id missing in context")
+		return nil, fmt.Errorf("unauthorized")
+	}
+
+	r.logger.Debug().
+		Str("query", q).
+		Int("limit", limit).
+		Int("offset", offset).
+		Str("user_id", userID).
+		Msg("executing paginated search")
+
+	var (
+		rows pgx.Rows
+		err  error
+	)
 
 	if q == "" {
 		rows, err = r.db.Query(ctx, `
-			SELECT id, title, completed, created_at
+			SELECT id, user_id, title, description, completed,
+			       created_at, updated_at, due_date, priority, tags
 			FROM todo
+			WHERE user_id = $1
 			ORDER BY created_at DESC
-			LIMIT $1
-		`, limit)
+			LIMIT $2 OFFSET $3
+		`, userID, limit, offset)
 	} else {
 		rows, err = r.db.Query(ctx, `
-			SELECT id, title, completed, created_at
+			SELECT id, user_id, title, description, completed,
+			       created_at, updated_at, due_date, priority, tags
 			FROM todo
-			WHERE search_vector @@ plainto_tsquery('simple', $1)
-			ORDER BY ts_rank(search_vector, plainto_tsquery('simple', $1)) DESC
-			LIMIT $2
-		`, q, limit)
+			WHERE user_id = $1
+			  AND search_vector @@ plainto_tsquery('simple', $2)
+			ORDER BY ts_rank(search_vector, plainto_tsquery('simple', $2)) DESC
+			LIMIT $3 OFFSET $4
+		`, userID, q, limit, offset)
 	}
 
 	if err != nil {
@@ -58,16 +85,29 @@ func (r *pgRepository) SearchTodos(ctx context.Context, q string, limit int) ([]
 	}
 	defer rows.Close()
 
-	var out []dto.SearchResult
+	var results []dto.SearchResult
+
 	for rows.Next() {
-		var t dto.SearchResult
-		if err := rows.Scan(&t.ID, &t.Title, &t.Completed, &t.CreatedAt); err != nil {
+		var todo dto.SearchResult
+		err := rows.Scan(
+			&todo.ID,
+			&todo.UserID,
+			&todo.Title,
+			&todo.Description,
+			&todo.Completed,
+			&todo.CreatedAt,
+			&todo.UpdatedAt,
+			&todo.DueDate,
+			&todo.Priority,
+			&todo.Tags,
+		)
+		if err != nil {
 			r.logger.Error().Err(err).Msg("row scan failed")
 			continue
 		}
-		out = append(out, t)
+		results = append(results, todo)
 	}
 
-	r.logger.Debug().Int("scanned_rows", len(out)).Msg("query completed")
-	return out, nil
+	r.logger.Debug().Int("result_count", len(results)).Msg("search completed")
+	return results, nil
 }

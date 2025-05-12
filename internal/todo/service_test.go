@@ -17,8 +17,8 @@ type mockRepo struct {
 	mock.Mock
 }
 
-func (m *mockRepo) SearchTodos(ctx context.Context, q string, limit int) ([]dto.SearchResult, error) {
-	args := m.Called(ctx, q, limit)
+func (m *mockRepo) SearchTodos(ctx context.Context, q string, limit int, offset int) ([]dto.SearchResult, error) {
+	args := m.Called(ctx, q, limit, offset)
 	return args.Get(0).([]dto.SearchResult), args.Error(1)
 }
 
@@ -30,9 +30,9 @@ func TestService_List(t *testing.T) {
 	expected := []dto.SearchResult{
 		{ID: "1", Title: "Test", Completed: false, CreatedAt: time.Now()},
 	}
-	repo.On("SearchTodos", mock.Anything, "test", 5).Return(expected, nil)
+	repo.On("SearchTodos", mock.Anything, "test", 5, 0).Return(expected, nil)
 
-	results, err := svc.List(context.Background(), "test", 5)
+	results, err := svc.ListPaginated(context.Background(), "test", 5, 0)
 	assert.NoError(t, err)
 	assert.Equal(t, expected, results)
 	repo.AssertExpectations(t)
