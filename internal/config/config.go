@@ -4,14 +4,12 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/joho/godotenv"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 )
 
 type Config struct {
 	HTTPAddr    string `mapstructure:"http-addr"`
-	NATSURL     string `mapstructure:"nats-url"`
 	DatabaseURL string `mapstructure:"database-url"`
 	LogLevel    string `mapstructure:"log-level"`
 	MetricsAddr string `mapstructure:"metrics-addr"`
@@ -22,7 +20,6 @@ func Load() (*Config, error) {
 	pflag.String("config", "config.yaml", "Path to config file")
 
 	// Flags
-	pflag.String("http-addr", "", "HTTP listen address")
 	pflag.String("nats-url", "", "NATS JetStream server URL")
 	pflag.String("database-url", "", "Database connection URL")
 	pflag.String("log-level", "info", "Log verbosity (debug|info|warn|error)")
@@ -53,17 +50,8 @@ func Load() (*Config, error) {
 	if cfg.HTTPAddr == "" {
 		return nil, fmt.Errorf("http-addr must be set")
 	}
-	if cfg.NATSURL == "" {
-		return nil, fmt.Errorf("nats-url must be set")
-	}
 	if cfg.DatabaseURL == "" {
 		return nil, fmt.Errorf("database-url must be set")
-	}
-
-	// get environment from .env
-	err := godotenv.Load()
-	if err != nil {
-		return nil, fmt.Errorf("error loading .env file")
 	}
 
 	return &cfg, nil

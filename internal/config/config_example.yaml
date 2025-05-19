@@ -1,4 +1,3 @@
-nats-url: "nats://"
 database-url: "postgres://"
 http-addr: ":8080"
 log-level: "debug"
