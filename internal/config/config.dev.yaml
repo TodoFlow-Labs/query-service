@@ -1,4 +1,0 @@
-database-url: "postgres://postgres:pass@localhost:5432/todos?sslmode=disable"
-http-addr: ":8081"
-log-level: "debug"
-metrics-addr: ":9090"
