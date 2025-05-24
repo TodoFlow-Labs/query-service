@@ -88,15 +88,15 @@ func authMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		userID := r.Header.Get("X-User-ID")
 		if userID == "" {
-			if os.Getenv("ENV") == "development" {
+			if os.Getenv("ENV") != "production" {
 				userID = "test-user"
 			} else {
-				http.Error(w, "X-User-ID header required", http.StatusUnauthorized)
+				writeError(w, http.StatusUnauthorized, "Missing X-User-ID header")
 				return
 			}
 		}
-		user_key := "user_id"
-		ctx := context.WithValue(r.Context(), user_key, userID)
+
+		ctx := context.WithValue(r.Context(), "user_id", userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
