@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
+	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
@@ -45,6 +46,14 @@ func Run() {
 	r.Use(middleware.Logger)
 	r.Use(jsonContentType)
 	r.Use(authMiddleware)
+
+	r.Use(cors.Handler(cors.Options{
+		AllowedOrigins:   []string{"http://localhost*"}, // Allow localhost with any port
+		AllowedMethods:   []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
+		AllowedHeaders:   []string{"Accept", "Authorization", "Content-Type", "X-User-ID"},
+		AllowCredentials: true,
+		MaxAge:           300,
+	}))
 
 	r.Get("/todos", handler.List)
 	r.Get("/todos/{id}", handler.GetByID)
