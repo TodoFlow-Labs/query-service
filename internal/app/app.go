@@ -8,7 +8,6 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-	"github.com/go-chi/cors"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog/log"
 
@@ -46,7 +45,6 @@ func Run() {
 	r.Use(middleware.Logger)
 	r.Use(jsonContentType)
 	r.Use(authMiddleware)
-	r.Use(allowLocalhostCORS())
 
 	r.Get("/todos", handler.List)
 	r.Get("/todos/{id}", handler.GetByID)
@@ -100,17 +98,5 @@ func authMiddleware(next http.Handler) http.Handler {
 
 		ctx := context.WithValue(r.Context(), "user_id", userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
-	})
-}
-
-// AllowLocalhostCORS allows CORS requests from localhost for development
-func allowLocalhostCORS() func(http.Handler) http.Handler {
-	return cors.Handler(cors.Options{
-		AllowedOrigins: []string{"http://localhost"},
-		AllowedMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
-		// AllowedHeaders:   []string{"Content-Type", "X-User-ID"},
-		// ExposedHeaders:   []string{"Content-Type"},
-		AllowCredentials: true,
-		MaxAge:           300, // 5 minutes
 	})
 }
